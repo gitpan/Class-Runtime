@@ -8,11 +8,11 @@ Class::Runtime - API for dynamic class loading/unloading/status
 
 =over 4
 
-=item o
+=item *
 
 Symbol
 
-=item o
+=item *
 
 File::Spec
 
@@ -24,19 +24,19 @@ To install this module type the following:
 
 =over 2
 
-=item o
+=item *
 
 perl Makefile.PL
 
-=item o
+=item *
 
 make
 
-=item o
+=item *
 
 make test
 
-=item o
+=item *
 
 make install
 
@@ -56,42 +56,55 @@ Also, a class can be checked whether it is loaded or not in the process.
 
 =head1 SYNOPSIS
 
-  my $class = 'MyClass::MySubClass';
-  my $obj = Class::Runtime->new( class=> $class );
+ my $class = 'MyClass::MySubClass';
+ my $obj = Class::Runtime->new( class=> $class );
 
-  ## LOADING CLASS AT RUNTIME
-  unless ( $cl->load ) {
-  	warn "Error in loading class\n";
+ ## LOADING CLASS AT RUNTIME
+ unless ( $cl->load ) {
+	warn "Error in loading class\n";
 	warn "\n\n", $@, "\n\n" if DEBUG;
-  }
+ }
 
-  ## CHECKING FOR CLASS AVAILABILITY AT RUNTIME
-  unless ( $cl->isLoaded ) {
+ ## CHECKING FOR CLASS AVAILABILITY AT RUNTIME
+ unless ( $cl->isLoaded ) {
 	warn 'Class - ', $class, ' - is loaded', "\n";
-  }
+ }
 
-  my $newPath;
-  ## ADDING SEACH PATH TO OBJECT
-  ## Multiple
-  $newPath = $cl->addPath( path=> [ qw( /tmp/lib /tmp/lib2 ) ] );
+ my $newPath;
+ ## ADDING SEACH PATH TO OBJECT
+ ## Multiple
+ $newPath = $cl->addPath( path=> [ qw( /tmp/lib /tmp/lib2 ) ] );
   
-  ##OR Single
-  $newPath = $cl->addPath( path=> '/tmp/lib' );
+ ##OR Single
+ $newPath = $cl->addPath( path=> '/tmp/lib' );
 
-  ## REMOVING SEARCH PATH FROM OBJECT
-  ## Multiple
-  $newPath = $cl->dropPath( path=> [ qw( /tmp/lib /tmp/lib2 ) ] );
+ ## REMOVING SEARCH PATH FROM OBJECT
+ ## Multiple
+ $newPath = $cl->dropPath( path=> [ qw( /tmp/lib /tmp/lib2 ) ] );
   
-  ##OR Single
-  $newPath = $cl->dropPath( path=> '/tmp/lib' );
+ ##OR Single
+ $newPath = $cl->dropPath( path=> '/tmp/lib' );
 
-  ## GETTING PATH ASSOCIATED WITH OBJECT
-  my @path = $cl->getPath;
+ ## GETTING PATH ASSOCIATED WITH OBJECT
+ my @path = $cl->getPath;
 
-  ## UNLOADING CLASS
-  if ( $cl->isLoaded ) {
-  	$cl->unload or warn 'Unable to unload class - ', $class, "\n";
-  }
+ ## INVOKING METHOD 
+ my $method = 'new';
+ if ( $cl->isLoaded and $class->can( 'new' ) ) {
+	my $obj = $cl->invoke( 'new', arg1=> 1, arg2=> 2 );
+	$obj->method2;
+ }
+
+ ## NOT NECESSARY AS ONCE CLASS HAS BEEN LOADED CAN INVOKE DIRECTLY
+ if ( $cl->isLoaded and $class->can( 'new' ) ) {
+	my $obj = $class->new( arg1=> 1, arg2=> 2 );
+	$obj->method2;
+ }
+
+ ## UNLOADING CLASS
+ if ( $cl->isLoaded ) {
+	$cl->unload or warn 'Unable to unload class - ', $class, "\n";
+ }
   
 =head1 METHODS
 
@@ -105,7 +118,7 @@ use strict;
 use Symbol ();
 use File::Spec ();
 
-$Class::Runtime::VERSION = '0.1';
+$Class::Runtime::VERSION = '0.2';
 
 =pod
 
@@ -114,23 +127,23 @@ $Class::Runtime::VERSION = '0.1';
 Creates new object and initializes member variables if
 passed in as arguments.  Takes parameterized argument list.
 
-=over
+=over 2
 
-=item I<Input>
+=item Input
 
 =over 2
 
-=item o
+=item *
 
 class => name of class to dynamically load
 
 =back
 
-=item I<Output>
+=item Output
 
 =over 2
 
-=item o
+=item *
 
 Class::Runtime object
 
@@ -142,12 +155,20 @@ Class::Runtime object
 sub new {
 	my $class = shift;
 	my $param = { @_ };
-	my $loadClass = $param->{'class'} || return;
+	my $loadClass = $param->{'class'} || do {
+		warn __PACKAGE__ . " object construction requires parameter 'class'\n";
+		return;
+	};
 
 	return bless {
 		class_=>	$loadClass,
 		path_=>		[],	
 	}, $class;
+}
+
+sub name {
+	my $obj = shift;
+	return $obj->{'class_'};
 }
 
 =pod
@@ -156,27 +177,27 @@ sub new {
 
 Method used to retrieve path associated with this object
 
-=over
+=over 2
 
-=item I<Input>
+=item Input
 
 =over 2
 
-=item o
+=item *
 
 None
 
 =back
 
-=item I<Output>
+=item Output
 
 =over 2
 
-=item o
+=item *
 
 array of paths
 
-=item o
+=item *
 
 integer 0 if no paths exist
 
@@ -188,7 +209,7 @@ integer 0 if no paths exist
 sub getPath {
 	my $obj = shift;
 
-	@{ $obj->{'path_'} } > 0 ?
+	@{ $obj->{'path_'} } ?
 		return @{ $obj->{'path_'} } :
 		return 0;
 }
@@ -199,27 +220,27 @@ sub getPath {
 
 Method used to add path to object path list to search from
 
-=over
+=over 2
 
-=item I<Input>
+=item Input
 
 =over 2
 
-=item o
+=item *
 
 path => As a single string or as a reference to an array
 
 =back
 
-=item I<Output>
+=item Output
 
 =over 2
 
-=item o
+=item *
 
 array of paths
 
-=item o
+=item *
 
 undef if error
 
@@ -231,7 +252,10 @@ undef if error
 sub addPath {
 	my $obj = shift;
 	my $param = { @_ };
-	my $path = $param->{'path'} || return;
+	my $path = $param->{'path'} || do {
+		warn "Method 'dropPath' requires argument 'path'\n";
+		return;
+	};
 
 	if ( ref($path) eq 'ARRAY' ) {
 		foreach my $incPath ( @INC ) {
@@ -263,27 +287,27 @@ sub addPath {
 
 Method used to remove path from object search path
 
-=over
+=over 2
 
-=item I<Input>
+=item Input
 
 =over 2
 
-=item o
+=item *
 
 path=> As a single string or as a reference to an array
 
 =back
 
-=item I<Output>
+=item Output
 
 =over 2
 
-=item o
+=item *
 
 array of paths
 
-=item o
+=item *
 
 undef if error
 
@@ -295,7 +319,10 @@ undef if error
 sub dropPath {
 	my $obj = shift;
 	my $param = { @_ };
-	my $path = $param->{'path'} || return;
+	my $path = $param->{'path'} || do {
+		warn "Method 'dropPath' requires argument 'path'\n";
+		return;
+	};
 
 	return unless defined $obj->getPath;
 
@@ -326,27 +353,27 @@ sub dropPath {
 
 Method used to check whether given class is loaded.
 
-=over
+=over 2
 
-=item I<Input>
+=item Input
 
 =over 2
 
-=item o
+=item *
 
 None
 
 =back
 
-=item I<Output>
+=item Output
 
 =over 2
 
-=item o
+=item *
 
 1 if loaded
 
-=item o
+=item *
 
 0 if not loaded
 
@@ -358,7 +385,10 @@ None
 sub isLoaded {
 	my $obj = shift;
 	my $param = { @_ };
-	my $class = $obj->{'class_'} || return;
+	my $class = $obj->{'class_'} || do {
+		warn __PACKAGE__ . " object is not initialized with class name\n";
+		return;
+	};
 
 	$class =~ /^(.*::)(\w+)/ if ( $class =~ /::/ );
 	my $base = $1 || 'main::';
@@ -385,27 +415,27 @@ load the paths 'unshifted' onto the @INC array will be
 modification of @INC since the loading library may modify
 @INC or perhaps some other code.
 
-=over
+=over 2
 
-=item I<Input>
+=item Input
 
 =over 2
 
-=item o
+=item *
 
 None
 
 =back
 
-=item I<Output>
+=item Output
 
 =over 2
 
-=item o
+=item *
 
 1 on successful load
 
-=item o
+=item *
 
 undef if error (setting $@)
 
@@ -417,7 +447,10 @@ undef if error (setting $@)
 sub load {
 	my $obj = shift;
 	my $param = { @_ };
-	my $class = $obj->{'class_'} || return;
+	my $class = $obj->{'class_'} || do {
+		warn __PACKAGE__ . " object is not initialized with class name\n";
+		return;
+	};
 
 	my $loadPath = @{ $obj->{'path_'} };
 	my $file = File::Spec->catfile( split '::', $class ) . '.pm';
@@ -435,27 +468,27 @@ sub load {
 
 Method used to unload class/library
 
-=over
+=over 2
 
-=item I<Input>
+=item Input
 
 =over 2
 
-=item o
+=item *
 
 None
 
 =back
 
-=item I<Output>
+=item Output
 
 =over 2
 
-=item o
+=item *
 
 1 on successful unload
 
-=item o
+=item *
 
 undef if error
 
@@ -467,16 +500,18 @@ undef if error
 sub unload {
 	my $obj = shift;
 	my $param = { @_ };
-	my $class = $obj->{'class_'} || return;
+	my $class = $obj->{'class_'} || do {
+		warn __PACKAGE__ . " object is not initialized with class name\n";
+		return;
+	};
 	return if $class eq __PACKAGE__;
 
-	if ( Symbol::delete_package($class) ) {
-		my $file = File::Spec->catfile( split '::', $class ) . '.pm';
-		delete $INC{$file} if exists $INC{$file};
-		return 1;
-	} else {
-		return 0;
-	}
+	Symbol::delete_package($class);
+	my $file = File::Spec->catfile( split '::', $class ) . '.pm';
+	delete $INC{$file} if exists $INC{$file};
+
+	return 1;
+
 }
 
 =pod
@@ -485,33 +520,29 @@ sub unload {
 
 Method used to load class/library and call specific method with that library.
 
-=over
+=over 2
 
-=item I<Input>
+=item Input
 
 =over 2
 
-=item o
+=item *
 
-method => method name
+name of method
 
-=item o
+=item *
 
-argument => reference to array of arguments to pass to method call
+remaining list of arguments to pass off to invoked method
 
 =back
 
-=item I<Output>
+=item Output
 
 =over 2
 
-=item o
+=item *
 
 value of returned method call
-
-=item o
-
-undef if error
 
 =back
 
@@ -520,17 +551,16 @@ undef if error
 =cut
 sub invoke {
 	my $obj = shift;
-	my $param = { @_ };
-	my $class = $obj->{'class'} || return;
-	my $method = $param->{'method'} || return;
-	my $args = $param->{'argument'};
+	my $class = $obj->{'class_'} || do {
+		warn __PACKAGE__ . " object is not initialized with class name\n";
+		return;
+	};
+	my $method = shift || do {
+		warn "First argument to 'invoke' needs to be valid method name\n";
+		return;
+	};
 
-	if ( $obj->isLoaded ) {
-		if ( my $h = $class->can( $method ) ) {
-			return $h->( $args );
-		}
-	}
-	return;
+	return $class->$method( @_ );
 }
 
 sub cleanINC_ () {
@@ -557,9 +587,11 @@ __END__
 
 =over 2
 
-=item o
+=item *
 
 2002/02/14 Created
+
+2003/07/07 Modified to correct issues with method invoke
 
 =back
 
@@ -572,9 +604,23 @@ listed below.
 
 =over 2
 
-=item 1
+=item *
 
 Stathy G. Touloumis <stathy-classruntime@stathy.com>
+
+=back
+
+=head1 CREDITS
+
+=over 2
+
+=item *
+
+Per Einar Ellefsen - For providing the code to conver class to file path portably.
+
+=item *
+
+Bhavesh Jardosh - For providing bug info in test.pl and method invoke.
 
 =back
 

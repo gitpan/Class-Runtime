@@ -11,7 +11,7 @@ use ExtUtils::MakeMaker;
 WriteMakefile(
 
     NAME=>					__PACKAGE__,
-	'PREREQ_PM'=>			{ File::Spec=> 0.8, Symbol=> 1.02 },
+	'PREREQ_PM'=>			{ 'File::Spec'=> 0.8, Symbol=> 1.02 },
     VERSION_FROM=>			'Runtime.pm',
 	($] >= 5.005 ?
 		(
